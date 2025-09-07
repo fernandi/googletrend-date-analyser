@@ -77,7 +77,7 @@ export function renderTimeseries(
     },
     {
       exploreQuery: query,
-      guestPath: 'https://trends.google.fr:443/trends/embed/',
+      guestPath: 'https://trends.google.com:443/trends/embed/',
     }
   );
 }

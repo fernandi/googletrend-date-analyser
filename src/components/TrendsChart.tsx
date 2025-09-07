@@ -51,7 +51,7 @@ export default function TrendsChart({ items, from, to, manualOnly = true }: Prop
       widgetConfig
     )}, {exploreQuery: ${JSON.stringify(
       exploreQuery
-    )}, guestPath: "https://trends.google.fr:443/trends/embed/"});}</script><script src="https://ssl.gstatic.com/trends_nrtr/4207_RC01/embed_loader.js" onload="__render()"></script></body></html>`
+    )}, guestPath: "https://trends.google.com:443/trends/embed/"});}</script><script src="https://ssl.gstatic.com/trends_nrtr/4207_RC01/embed_loader.js" onload="__render()"></script></body></html>`
   }, [shouldLoad, items, from, to])
 
   return (

@@ -4,7 +4,7 @@ import TrendsChart from './components/TrendsChart'
 import RelativePeriodSlider from './components/RelativePeriodSlider'
 import DateManager from './components/DateManager'
 import { DEFAULT_DATES } from './constants/defaultDates'
-import { computeTimeRangeISO, formatKeywordFromDate, serializeDates, deserializeDates } from './utils/dateUtils'
+import { computeTimeRangeISO, formatKeywordFromDate, serializeDates, deserializeDates, makeDateFromObserved } from './utils/dateUtils'
 import type { ObservedDate } from './utils/dateUtils'
 
 function App() {
@@ -13,9 +13,22 @@ function App() {
     const p = new URLSearchParams(window.location.search)
     const sRaw = Number(p.get('start'))
     const eRaw = Number(p.get('end'))
-    const s = Number.isFinite(sRaw) ? Math.max(-30, Math.min(sRaw, 0)) : undefined
-    const e = Number.isFinite(eRaw) ? Math.max(-30, Math.min(eRaw, 0)) : undefined
     const parsed = deserializeDates(p.get('dates'))
+
+    const datesInit = (parsed && parsed.length ? parsed : DEFAULT_DATES) as ObservedDate[]
+    const { start: defStart, end: defEnd } = computeDefaultOffsets(datesInit[0])
+    console.log('[init] url params', { sRaw, eRaw, parsed })
+    console.log('[init] firstDateForDefaults', datesInit[0])
+    console.log('[init] defaultOffsets', { defStart, defEnd })
+
+    const sCand = Number.isFinite(sRaw) ? clampOffset(sRaw) : undefined
+    const eCand = Number.isFinite(eRaw) ? clampOffset(eRaw) : undefined
+    // Si l'URL force 0/0 (ancien défaut), on ignore et on applique le calcul dynamique
+    const useDynamic = sCand === 0 && eCand === 0
+    const s = useDynamic ? defStart : (sCand ?? defStart)
+    const e = useDynamic ? defEnd : (eCand ?? defEnd)
+    console.log('[init] selectedOffsets', { s, e, reason: useDynamic ? 'override-0-0-to-defaults' : 'url-or-defaults' })
+
     return { s, e, dates: parsed as ObservedDate[] | null }
   })()
 
@@ -30,8 +43,36 @@ function App() {
     params.set('end', String(endOffset))
     params.set('dates', serializeDates(dates))
     const url = `${window.location.pathname}?${params.toString()}`
+    console.log('[sync->url]', { startOffset, endOffset, datesSerialized: params.get('dates') })
     window.history.replaceState(null, '', url)
   }, [dates, startOffset, endOffset])
+
+  function clampOffset(v: number): number {
+    return Math.max(-30, Math.min(v, 0))
+  }
+
+  function computeDefaultOffsets(first: ObservedDate): { start: number; end: number } {
+    const today = new Date()
+    const t = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const event = makeDateFromObserved(first)
+    const daysToEvent = Math.floor((event.getTime() - t.getTime()) / (24 * 60 * 60 * 1000))
+    console.log('[defaults] today vs event', { today: t.toISOString().slice(0,10), event: event.toISOString().slice(0,10), daysToEvent })
+    // Default window: one week before the reference point
+    if (daysToEvent > 0) {
+      // Event in the future: end at today's relative offset (negative), keep 7 days
+      let end = clampOffset(-daysToEvent)
+      let start = end - 6
+      if (start < -30) {
+        start = -30
+        end = Math.min(start + 6, 0)
+      }
+      console.log('[defaults] future event ->', { start, end })
+      return { start, end }
+    }
+    // Event today or past: J-6 → J
+    console.log('[defaults] past/today -> { start: -6, end: 0 }')
+    return { start: -6, end: 0 }
+  }
 
   return (
     <div style={{ display: 'flex', gap:0, padding: 0, height: '100vh', overflow: 'hidden' }}>
@@ -68,7 +109,7 @@ Comparez les recherches Google à la veille des manifestations. Date de référe
                 ]}
               />
               <div style={{ marginTop: 6, display: 'flex', gap: 12, alignItems: 'center' }}>
-                <a target="_blank" href={`https://trends.google.fr/trends/explore?date=${range.start}%20${range.end}&geo=FR&q=${encodeURIComponent(keyword)},%2Fm%2F0d07ph`}>Ouvrir dans Google Trends</a>
+                <a target="_blank" href={`https://trends.google.com/trends/explore?date=${range.start}%20${range.end}&geo=FR&q=${encodeURIComponent(keyword)},%2Fm%2F0d07ph`}>Ouvrir dans Google Trends</a>
                 <a onClick={() => window.dispatchEvent(new CustomEvent('trends:reload', { detail: { id: d.id } }))} style={{ cursor: 'pointer', color: '#3b82f6' }}>Recharger</a>
               </div>
             </div>
