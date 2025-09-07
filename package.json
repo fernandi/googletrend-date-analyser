@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "BASE_PATH=$REPO_BASE vite build && npx gh-pages -d dist"
+    "predeploy": "BASE_PATH=/googletrend-date-analyser/ vite build",
+    "deploy": "npx gh-pages -d dist"
   },
   "dependencies": {
     "react": "^19.1.1",

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { TimeseriesComparisonItem } from '../utils/trendsEmbed'
+import { ensureTrendsScript, renderTimeseries } from '../utils/trendsEmbed'
 import { schedule } from '../utils/loadQueue'
 
 type Props = {
@@ -11,9 +12,9 @@ type Props = {
 
 export default function TrendsChart({ items, from, to, manualOnly = true }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const innerRef = useRef<HTMLDivElement | null>(null)
   const [shouldLoad, setShouldLoad] = useState(false)
   const [, setLoaded] = useState(false)
-  const [iframeKey] = useState(0)
 
   // Si manualOnly=false, on charge quand le composant devient visible
   useEffect(() => {
@@ -37,34 +38,27 @@ export default function TrendsChart({ items, from, to, manualOnly = true }: Prop
     }
   }, [manualOnly])
 
-  const srcDoc = useMemo(() => {
-    if (!shouldLoad) return ''
-    const geo = items[0]?.geo ?? 'FR'
-    const q = items.map((i) => encodeURIComponent(i.keyword)).join(',')
-    const widgetConfig = {
-      comparisonItem: items,
-      category: 0,
-      property: '',
+  // Charger le script Trends et rendre directement dans la page
+  useEffect(() => {
+    if (!shouldLoad) return
+    const el = innerRef.current
+    if (!el) return
+    let cancelled = false
+    schedule(async () => {
+      await ensureTrendsScript()
+      if (cancelled) return
+      renderTimeseries(el, items, { from, to })
+      setLoaded(true)
+    })
+    return () => {
+      cancelled = true
     }
-    const exploreQuery = new URLSearchParams({ date: `${from} ${to}`, geo, q }).toString()
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>html,body,#c{margin:0;padding:0;}</style></head><body><div id="c"></div><script>function __render(){trends.embed.renderExploreWidget("TIMESERIES", ${JSON.stringify(
-      widgetConfig
-    )}, {exploreQuery: ${JSON.stringify(
-      exploreQuery
-    )}, guestPath: "https://trends.google.com:443/trends/embed/"});}</script><script src="https://ssl.gstatic.com/trends_nrtr/4207_RC01/embed_loader.js" onload="__render()"></script></body></html>`
   }, [shouldLoad, items, from, to])
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: 360 }}>
       {shouldLoad ? (
-        <iframe
-          key={iframeKey}
-          style={{ width: '100%', height: '100%', border: '0' }}
-          srcDoc={srcDoc}
-          sandbox="allow-scripts allow-same-origin"
-          loading="lazy"
-          onLoad={() => setLoaded(true)}
-        />
+        <div ref={innerRef} style={{ width: '100%', height: '100%' }} />
       ) : (
         <div style={{display:'grid',placeItems:'center',height:'100%', backgroundColor: '#f0f0f01a'}}>
           <button onClick={() => schedule(() => setShouldLoad(true))}>Charger le graphique</button>

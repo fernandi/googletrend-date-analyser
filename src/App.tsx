@@ -6,8 +6,13 @@ import DateManager from './components/DateManager'
 import { DEFAULT_DATES } from './constants/defaultDates'
 import { computeTimeRangeISO, formatKeywordFromDate, serializeDates, deserializeDates, makeDateFromObserved } from './utils/dateUtils'
 import type { ObservedDate } from './utils/dateUtils'
+import { configureQueue } from './utils/loadQueue'
 
 function App() {
+  // Espacer les chargements d'iframes pour éviter les 429 côté Google Trends
+  useEffect(() => {
+    configureQueue({ spacingMs: 5000 })
+  }, [])
   // Lecture initiale depuis l'URL (synchrone, avant le premier rendu)
   const initialParams = (() => {
     const p = new URLSearchParams(window.location.search)
